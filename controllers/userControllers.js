@@ -18,12 +18,12 @@ const register = async (req, res) => {
   } catch (error) {
     if (error.name === 'ValidationError') {
       for (let field in error.errors) {
-        return res.status(400).json({ message: `Missing required ${field} field` });
+        return res.status(400).json({ message: "Помилка від Joi або іншої бібліотеки валідації" });
       }
     }
 
     if (error.code === 11000) {
-      return res.status(409).json({ message: "Email in use." });
+      return res.status(409).json({ message: "Email in use" });
     }
 
     res.status(500).json({ message: 'Error registering user', error });
@@ -36,7 +36,7 @@ const loginUser = async (req, res) => {
 
   try {
     if (!email || !password) {
-      return res.status(400).json({ message: `Missing required ${!email ? 'email' : 'password'} field` });
+      return res.status(400).json({ message: "Помилка від Joi або іншої бібліотеки валідації" });
     }
 
     const user = await User.findOne({ email });
