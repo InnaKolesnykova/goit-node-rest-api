@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -5,7 +6,7 @@ import cors from 'cors';
 import connectDB from './db/db.js';
 import authRouter from './routes/auth.js';
 import contactsRouter from './routes/contactsRouter.js';
-import upload from './middleware/avatarMiddleware.js'; 
+import upload from './middleware/avatarMiddleware.js';
 
 const app = express();
 
@@ -18,13 +19,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, 'public')));
-
 app.use('/users/avatars', upload.single('avatar'));
 
 app.use('/users', authRouter);
 app.use('/api/contacts', contactsRouter);
 
-app.use((req, res, next) => {
+app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
