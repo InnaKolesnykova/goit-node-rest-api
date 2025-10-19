@@ -8,6 +8,6 @@ authRouter.post('/register', register);
 authRouter.post('/login', loginUser);
 authRouter.post('/logout', authMiddleware, logoutUser);
 authRouter.get('/current', authMiddleware, getCurrentUser);
-authRouter.patch('/avatars', authMiddleware, updateAvatar)
+authRouter.patch('/avatar', authMiddleware, updateAvatar)
 
 export default authRouter;
