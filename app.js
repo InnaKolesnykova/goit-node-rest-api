@@ -18,9 +18,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, 'public')));
-
-app.use('/users/avatar', upload.single('avatar'));
-
 app.use('/users', authRouter);
 app.use('/api/contacts', contactsRouter);
 
