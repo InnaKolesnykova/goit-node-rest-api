@@ -6,12 +6,33 @@ import path from 'path';
 import jimp from 'jimp';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import nodemailer from 'nodemailer';
-import HttpError from "../helpers/HttpError.js";
 import { nanoid } from 'nanoid';
+import sgMail from '@sendgrid/mail';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+const sendVerificationEmail = async (user) => {
+  const verificationUrl = `${process.env.BASE_URL}/users/verify/${user.verificationToken}`;
+
+  const msg = {
+    to: user.email,
+    from: process.env.SENDER_EMAIL,
+    subject: 'Email Verification',
+    text: `Please verify your email by clicking the following link: ${verificationUrl}`,
+    html: `<p>Please verify your email by clicking the link below:</p>
+           <a href="${verificationUrl}">${verificationUrl}</a>`,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Verification email sent to ${user.email}`);
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+  }
+};
 
 const register = async (req, res) => {
   const { email, password } = req.body;
@@ -19,6 +40,9 @@ const register = async (req, res) => {
   try {
     const user = new User({ email, password });
     await user.save();
+
+    await sendVerificationEmail(user);
+
     res.status(201).json({
       user: {
         email: user.email,
@@ -32,11 +56,9 @@ const register = async (req, res) => {
         return res.status(400).json({ message: `Missing required ${field} field` });
       }
     }
-
     if (error.code === 11000) {
       return res.status(409).json({ message: "Email in use." });
     }
-
     res.status(500).json({ message: 'Error registering user', error });
   }
 };
@@ -83,9 +105,7 @@ const loginUser = async (req, res) => {
 const logoutUser = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
+    if (!user) return res.status(401).json({ message: "Not authorized" });
 
     user.token = null;
     await user.save();
@@ -99,9 +119,7 @@ const logoutUser = async (req, res) => {
 const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
+    if (!user) return res.status(401).json({ message: "Not authorized" });
 
     res.status(200).json({
       email: user.email,
@@ -115,9 +133,7 @@ const getCurrentUser = async (req, res) => {
 const updateAvatar = async (req, res) => {
   try {
     const { file } = req;
-    if (!file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
 
     const avatar = await jimp.read(file.path);
     await avatar.resize(250, 250);
@@ -139,45 +155,12 @@ const updateAvatar = async (req, res) => {
   }
 };
 
-const sendVerificationEmail = async (user) => {
-  const verificationToken = nanoid();
-  user.verificationToken = verificationToken;
-  await user.save();
-
-  const verificationUrl = `${process.env.BASE_URL}/users/verify/${verificationToken}`;
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: user.email,
-    subject: 'Email Verification',
-    text: `Please verify your email by clicking on the following link: ${verificationUrl}`,
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error('Error sending email:', error);
-    } else {
-      console.log('Email sent:', info.response);
-    }
-  });
-};
-
 const verifyEmail = async (req, res) => {
   try {
     const { verificationToken } = req.params;
     const user = await User.findOne({ verificationToken });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.verificationToken = null;
     user.verify = true;
@@ -192,20 +175,13 @@ const verifyEmail = async (req, res) => {
 const verifyAgain = async (req, res) => {
   const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ message: 'Missing required field email' });
-  }
+  if (!email) return res.status(400).json({ message: 'Missing required field email' });
 
   try {
     const user = await User.findOne({ email });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (user.verify) {
-      return res.status(400).json({ message: 'Verification has already been passed' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.verify) return res.status(400).json({ message: 'Verification has already been passed' });
 
     await sendVerificationEmail(user);
     res.status(200).json({ message: 'Verification email sent' });
@@ -214,4 +190,12 @@ const verifyAgain = async (req, res) => {
   }
 };
 
-export { verifyAgain, verifyEmail, register, loginUser, logoutUser, getCurrentUser, updateAvatar };
+export {
+  register,
+  loginUser,
+  logoutUser,
+  getCurrentUser,
+  updateAvatar,
+  verifyEmail,
+  verifyAgain
+};
